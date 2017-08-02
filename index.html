@@ -2,6 +2,7 @@
 <html ng-app="TOA">
 <head>
 	<title>Rooms colors</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<style type="text/css">
 		.fillter_tags{padding: 0; margin: 0;}
 		.fillter_tags:after{content:""; clear: both; display: block;}
@@ -162,6 +163,7 @@
 							if(c && obj.color !== c){
 								obj.color = c
 								$$scope.triggerHandler('changeData',[obj]);
+								$scope.$apply();
 							}
 			  				return obj.color;
 			  			},						
@@ -249,7 +251,8 @@
 		  		},
 		  		checkHover: function(e){
 		  			var focus;
-		  			if(e && e.target == $scope.$holderEl){
+		  			if(e){
+		  				if(e.target !== $scope.$holderEl) return;
 		  				var pos = findPos(e.target);
 		  				pos.x = Math.round((e.pageX - pos.x) * tmp.image.width/$scope.$holderEl.clientWidth);
 		  				pos.y = Math.round((e.pageY - pos.y) * tmp.image.height/$scope.$holderEl.clientHeight);
@@ -261,14 +264,12 @@
 			  					mask.outLine(false);
 			  				}
 			  			});
-			  			if(this.focusMask === focus) return;
-			  			this.focusMask = focus
-
-		  			}	  			
+		  			}  			
 		  			if(focus){
 		  				focus.outLine(true);
-						$($scope.$holderEl).addClass('hasOutline');
-		  			}else{
+		  				$scope.focusMask = focus;
+						$($scope.$holderEl).addClass('hasOutline');	
+		  			}else if($scope.focusMask){
 		  				tmp.outlineContext.clearRect(0,0,this.$outlinesCanvasEl.width,this.$outlinesCanvasEl.height);
 		  				$scope.focusMask = false;	
 						$($scope.$holderEl).removeClass('hasOutline');
