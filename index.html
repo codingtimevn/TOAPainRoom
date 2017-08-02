@@ -60,7 +60,7 @@
 		}
 	</style>
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
-	<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.5.6/angular.min.js" type="text/javascript"></script>
+<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.4/angular.min.js"></script>
 	<script type="text/javascript">
 		
 		angular.module('TOA', [])			
@@ -378,7 +378,8 @@
 					return room.cached.thumb || room.thumb;
 				}
 		  	});
-		  	$http.get('json/rooms.json').success(function(response) {
+		  	$http.get('json/rooms.json').then(function(response) {
+				response = response.data;
 		  		var taglist = {};
 		  		angular.forEach(response, function(room, id) {
 					room.cached = dataCaches[id] || {};
@@ -392,7 +393,8 @@
 		        $scope.tagList = taglist;
 		        $scope.fillTag('');
 		    });
-		  	$http.get('json/colors.json').success(function(response) {
+		  	$http.get('json/colors.json').then(function(response) {
+				response = response.data;
 		        $scope.colors = response;
 		        $scope.filterColor(response[Object.keys(response)[0]]);
 		    });
