@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root code="0000">
+   <style id="2f9ecba7-de33-4d1b-b47b-bd6740df936b" name="Bathroom Style 1" thumbUrl="http://localhost/dulux/xml/rooms/2f9ecba7-de33-4d1b-b47b-bd6740df936b/tyle_thumbnail.jpg" imageUrl="http://localhost/dulux/xml/rooms/2f9ecba7-de33-4d1b-b47b-bd6740df936b/background.jpg" description="Bathroom Style 1">
+      <surfaces>
+         <surface id="0" description="Wall" maskUrl="http://localhost/dulux/xml/rooms/2f9ecba7-de33-4d1b-b47b-bd6740df936b/mask1.png">
+            <hotspot x="399" y="76" />
+         </surface>
+         <surface id="1" description="Wall" maskUrl="http://localhost/dulux/xml/rooms/2f9ecba7-de33-4d1b-b47b-bd6740df936b/mask2.png">
+            <hotspot x="600" y="120" />
+         </surface>
+         <surface id="2" description="Trim" maskUrl="http://localhost/dulux/xml/rooms/2f9ecba7-de33-4d1b-b47b-bd6740df936b/mask3.png">
+            <hotspot x="800" y="46" />
+         </surface>
+      </surfaces>
+   </style>
+</root>

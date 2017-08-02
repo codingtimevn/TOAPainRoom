@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html ng-app="TOA">
+<head>
+	<title>Rooms colors</title>
+	<style type="text/css">
+		.fillter_tags{padding: 0; margin: 0;}
+		.fillter_tags:after{content:""; clear: both; display: block;}
+		.fillter_tags>li{float: left;list-style: none; padding: 5px 10px; cursor: pointer;}
+		.fillter_tags>li:hover{color: blue;}
+
+		.rooms:after{content: ""; display: block; clear: both;}
+		.rooms > div{ width: 200px; float: left; cursor: pointer; margin: 5px;}
+		.thumb img{width: 100%;}
+
+
+
+
+
+		.paintroom{display: none; background: #fff;}
+		.paintroom.visible{display: block;}
+		.paintroom>button{float: right;}
+		.canvas_panel{position: relative; float: left; clear: both; width: 100%;}
+		.canvas_panel canvas{display: block;}
+		.paintroom_root{width: 100%; height: auto;}
+		.paintroom_outlines{opacity: 0.3;}
+		.paintroom_outlines,.hotspots,.holder{width: 100%; height: 100%; position: absolute; top: 0; left: 0;}
+
+
+		.colorchoose{position: absolute; z-index:999; background:#fff; 	border: 1px solid; top: 20px; left:20px; width: 400px;}
+		.colorNav{padding: 0; margin: 0; width: 40px;}
+		.colorFilter{list-style: none; height: 40px; background: #ff0; border: 1px solid #fff; box-sizing: border-box; font-size: 0.6em; cursor: pointer;}
+		.colorchoose > .colors{ position: absolute; top: 20px; right: 0; left: 40px; bottom: 0; overflow: auto; padding: 5px;}
+
+		.colorchoose .colors:after{content: ""; display: block; clear: both;}
+		.colorchoose .clear{
+			position: absolute;
+		    right: 0px;
+		    top: 0;
+		}
+		.colors .color{float: left; width: 12.5%; cursor: pointer; border: 1px solid transparent;box-sizing: border-box; height: 35px; font-size: 0.6em;}
+		.colors .color:hover{border-color: #f00;}
+
+		.holder.hasOutline{cursor: pointer;}
+		.holder .hotspot{
+			position: absolute;
+			    height: 15px;
+			    width: 15px;
+			    margin-left: -7.5px;
+			    margin-top: -7.5px;
+			    border: 3px solid #FFFFFF;
+			    background-color: #E6E6E6;
+			    -moz-box-shadow: 0 0 6px 1px rgba(0,0,0,0.3);
+			    -webkit-box-shadow: 0 0 6px 1px rgba(0,0,0,0.3);
+			    box-shadow: 0 0 6px 1px rgba(0,0,0,0.3);
+			    -webkit-border-radius: 10px;
+			    -moz-border-radius: 10px;
+			    border-radius: 10px;
+			    cursor: pointer;
+		}
+	</style>
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+	<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.5.6/angular.min.js" type="text/javascript"></script>
+	<script type="text/javascript">
+		
+		angular.module('TOA', [])			
+		  .controller('PaintRoom', ['$scope','$controller',function($scope,$controller) {
+
+		  	var 
+				$$scope = $($scope),
+				colorChoose = (function(selector){
+					selector = $(selector).hide()
+						.on('click','.colors .color',function(){
+							var color = $(this).data('color');
+							currentMask.color(color);
+							ctrl();
+						}).on('click','.currentColor .clear',function(){
+							currentMask.clearColor();
+							$color.css('background','');
+						});
+					var currentMask,ctrl,$doc = $(document),
+						handleOutClick = function(e){
+							if(!$(e.target).closest(selector).length){
+								selector.hide();
+								$doc.unbind('click',handleOutClick);
+							}
+						},
+						$color = selector.find('.currentColor .title')
+					;
+					return ctrl = function(mask){
+						currentMask = mask;						
+						$doc.unbind('click',handleOutClick)
+						if(mask){
+							selector.show()
+							setTimeout(function(){
+								$doc.bind('click',handleOutClick);
+							});
+							var color = mask.color();
+							$color.data('color',color);
+							$color.css('background-color','#'+color.hex).text(color.id);
+						}else{
+							selector.hide();
+						}
+					}
+				})('.colorchoose'),
+			  	drawCanvasUrl = function(canvas,url){
+			  		loadImage(url,function(){
+			  			drawCanvasImage(canvas,this);
+			  		});
+			  	},
+			  	drawCanvasImage = function(canvas,image){
+			  		canvas.width = image.width;
+				  	canvas.height = image.height;			  		
+			  		canvas.getContext('2d').drawImage(image, 0, 0);
+			  	},
+			  	querys = function(inObj){
+			  		var obj = {}
+			  		for(x in inObj){
+			  			obj[x] = document.querySelector( inObj[x] );
+			  		}
+			  		return obj;
+			  	},
+			  	loadImage = function(url,success){
+			  		var img = new Image();
+	                img.src = url;
+	                img.onload = success;
+	                return img;
+			  	},
+			  	findPos = function (obj) {
+				    var curleft = 0, curtop = 0;
+				    if (obj.offsetParent) {
+				        do {
+				            curleft += obj.offsetLeft;
+				            curtop += obj.offsetTop;
+				        } while (obj = obj.offsetParent);
+				        return { x: curleft, y: curtop };
+				    }
+				    return undefined;
+				},
+			  	hexToRgb = function (hex) {
+				    var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+				    return result ? {
+				        r: parseInt(result[1], 16),
+				        g: parseInt(result[2], 16),
+				        b: parseInt(result[3], 16)
+				    } : null;
+				},
+			  	Mask = function(obj){
+			  		var
+						This = this,
+			  			tmpCanvas = document.createElement('canvas'),
+			  			tmpContext,
+			  			isOutline = false
+			  		;
+			  		loadImage(obj.mask,function(){
+			  			drawCanvasImage(tmpCanvas,this);
+			  			$(This).triggerHandler('loaded');
+			  		});
+			  		angular.extend(this,{
+			  			tmpImg: loadImage(obj.mask),
+			  			getObj: function(){return obj;},
+			  			color: function(c){
+							if(c && obj.color !== c){
+								obj.color = c
+								$$scope.triggerHandler('changeData',[obj]);
+							}
+			  				return obj.color;
+			  			},						
+						clearColor: function(){
+							obj.color = {};
+							$$scope.triggerHandler('changeData',[obj]);
+						},
+			  			imageData: function(){
+			  				return tmpCanvas.getContext('2d').getImageData(0,0,tmpCanvas.width,tmpCanvas.height);
+			  			},
+			  			hotspot: function(pos){
+			  				return obj.hotspot = pos || obj.hotspot;
+			  			},
+			  			isHover: function(pos){
+			  				var pixcel = tmpCanvas.getContext('2d').getImageData(pos.x, pos.y, 1, 1).data;
+						    return pixcel[3] > 0;
+			  			},
+			  			outLine: function(set){
+			  				if(set === isOutline) return isOutline;
+			  				isOutline = set;
+							if(set){
+								$scope.focusMask = this;
+								drawCanvasImage($scope.$outlinesCanvasEl,tmpCanvas);
+							}
+			  			}
+			  		});
+			  	}
+
+		  	;
+
+			angular.extend($scope,querys({
+				$dialogEl: '.paintroom',
+				$rootCanvasEl: '.paintroom_root',
+				$outlinesCanvasEl:'.paintroom_outlines',
+				$holderEl: '.holder'
+			}));
+
+
+		  	var 
+		  		tmp = {
+		  			imageCanvas: document.createElement('canvas'),
+		  			outlineContext: $scope.$outlinesCanvasEl.getContext('2d')
+		  		}
+		  	;
+		  	tmp.imageContext = tmp.imageCanvas.getContext('2d');
+		  	angular.extend($scope, {
+		  		currentRoom: {},
+		  		masks: [],
+		  		focusMask: undefined,
+		  		load: function(data){
+		  			this.show();
+		  			if(this.currentRoom == data) return;
+
+		  			this.currentRoom = data;
+		  			tmp.image = loadImage(data.image,function(){
+		  				drawCanvasImage(tmp.imageCanvas,this);
+		  				drawCanvasImage($scope.$rootCanvasEl,this);
+						$scope.setMask(data.mask);
+		  			});
+		  			
+		  		},
+		  		setMask: function(masks){
+		  			var count = 0, arr = [],cacheColors = this.currentRoom.cached.colors || [];
+					
+		  			masks.forEach(function(obj,i){
+						obj.color = cacheColors[i] || {};
+		  				var mask = new Mask(obj);
+		  				arr.push(mask);
+		  				$(mask).one('loaded',function(){
+		  					count++;
+		  					if(count == masks.length){
+		  						$$scope.triggerHandler('masksLoaded');
+		  					}
+		  				});
+		  			});
+					
+		  			this.masks = arr;
+					this.$apply();
+		  		},
+		  		show: function(){
+		  			$(this.$dialogEl).addClass('visible');
+		  		},
+		  		close: function(){
+		  			$(this.$dialogEl).removeClass('visible');
+		  		},
+		  		checkHover: function(e){
+		  			var focus;
+		  			if(e && e.target == $scope.$holderEl){
+		  				var pos = findPos(e.target);
+		  				pos.x = Math.round((e.pageX - pos.x) * tmp.image.width/$scope.$holderEl.clientWidth);
+		  				pos.y = Math.round((e.pageY - pos.y) * tmp.image.height/$scope.$holderEl.clientHeight);
+			  			this.masks.forEach(function(mask){
+			  				if(mask.isHover(pos)){
+			  					focus = mask;
+			  					return false;
+			  				}else{
+			  					mask.outLine(false);
+			  				}
+			  			});
+			  			if(this.focusMask === focus) return;
+			  			this.focusMask = focus
+
+		  			}	  			
+		  			if(focus){
+		  				focus.outLine(true);
+						$($scope.$holderEl).addClass('hasOutline');
+		  			}else{
+		  				tmp.outlineContext.clearRect(0,0,this.$outlinesCanvasEl.width,this.$outlinesCanvasEl.height);
+		  				$scope.focusMask = false;	
+						$($scope.$holderEl).removeClass('hasOutline');
+		  			}		  			
+		  		},
+		  		clearColor: function(){
+		  			this.masks.forEach(function(mask){ mask.getObj().color = {}});
+		  			$$scope.triggerHandler('changeData',[this.currentRoom]);
+		  		},
+		  		draw: function(){
+		  			drawCanvasImage($scope.$rootCanvasEl,tmp.image);
+		  			this.masks.forEach(function (mask) {
+		  				var color = hexToRgb(mask.color().hex);
+				        if (color) {
+				          var w = tmp.imageCanvas.width,
+				              h = tmp.imageCanvas.height,
+				              maskData = mask.imageData().data,
+				              tmpContext = tmp.imageContext,
+				              totalPixels = w * h,
+				              tmpData;
+				          tmpContext.drawImage(tmp.image , 0, 0);
+				          tmpData = tmpContext.getImageData(0, 0, w, h);
+				          while (totalPixels--) {
+				            var pixelOffset = totalPixels * 4,
+				                alpha = maskData[pixelOffset + 3];
+
+				            if (alpha > 0) {
+				              tmpData.data[pixelOffset] = tmpData.data[pixelOffset] * color.r / 255;
+				              tmpData.data[pixelOffset + 1] = tmpData.data[pixelOffset + 1] * color.g / 255;
+				              tmpData.data[pixelOffset + 2] = tmpData.data[pixelOffset + 2] * color.b / 255;
+				            } else {
+				              tmpData.data[pixelOffset] = 0;
+				              tmpData.data[pixelOffset + 1] = 0;
+				              tmpData.data[pixelOffset + 2] = 0;
+				            }
+				            tmpData.data[pixelOffset + 3] = alpha;
+				          }
+
+				          tmpContext.putImageData(tmpData, 0, 0);
+				          $scope.$rootCanvasEl.getContext('2d').drawImage(tmpContext.canvas, 0, 0);
+				        }
+			      	})
+		  		},
+				imgCacheResized: function(width){
+					var
+						canvas = document.createElement('canvas'),
+						raito = width/tmp.image.width,
+						height = tmp.image.height * raito
+					;
+					canvas.width = width;
+					canvas.height = height;
+					canvas.getContext('2d').drawImage($scope.$rootCanvasEl, 0,0, tmp.image.width, tmp.image.height, 0,0,width, height);
+					return canvas;
+					var createThumb = function(canvas,width){
+						var thumb = document.createElement('canvas');
+						var taito = width/canvas.width;
+						var vRatio = canvas.height / img.height;
+						var ratio  = Math.min ( hRatio, vRatio );
+						ctx.drawImage(img, 0,0, img.width, img.height, 0,0,img.width*ratio, img.height*ratio);
+						return thumb;
+					}
+				},
+				toggleColors: function(e){
+					colorChoose(this.focusMask);
+				}
+		  	});
+		  	$$scope.bind('masksLoaded',function(){
+		  		setTimeout(function(){$scope.draw();});
+		  	});
+		  }])
+		  .controller('ColorPhrase', ['$scope', '$controller','$http',function($scope,$controller,$http) {
+		  	var paintCtrl = $scope.$new(), dataCaches = JSON.parse(localStorage['PaintRoom'] || '{}');
+		  	angular.extend($scope, {
+		  		rooms: {},
+		  		colors: {},
+		  		colorVisibles: {},
+		  		paintCtrl: paintCtrl,
+		  		tagList: {},
+		  		visibleRooms: {},
+		  		editRoom: function(id){
+		  			var room = this.rooms[id];
+		  			room.id = id;
+		  			paintCtrl.load(room);
+		  		},
+		  		fillTag: function(tag){
+		  			if(tag == ""){
+		  				$scope.visibleRooms = this.rooms;
+		  				return;
+		  			}
+		  			$scope.visibleRooms = {};
+		  			angular.forEach(this.tagList[tag],function(id){
+		  				$scope.visibleRooms[id] = $scope.rooms[id];
+		  			});
+		  		},
+		  		filterColor: function(colorGroup){
+		  			$scope.colorGroup = colorGroup;
+		  		},
+				cache: function(id,data){
+					if(!id) return dataCaches;
+					if(!data) return dataCaches[id];					
+					dataCaches[id] = data;
+					localStorage['PaintRoom'] = JSON.stringify(dataCaches);
+					return dataCaches;
+				},
+				getThumb: function(room){
+					return room.cached.thumb || room.thumb;
+				}
+		  	});
+		  	$http.get('json/rooms.json').success(function(response) {
+		  		var taglist = {};
+		  		angular.forEach(response, function(room, id) {
+					room.cached = dataCaches[id] || {};
+		  			room.id = id;
+		  			angular.forEach(room.tags,function(tag){
+		  				taglist[tag] = taglist[tag] || [];
+		  				taglist[tag].push(id)
+		  			});
+				});
+		        $scope.rooms = response;
+		        $scope.tagList = taglist;
+		        $scope.fillTag('');
+		    });
+		  	$http.get('json/colors.json').success(function(response) {
+		        $scope.colors = response;
+		        $scope.filterColor(response[Object.keys(response)[0]]);
+		    });
+
+		    $controller('PaintRoom',{$scope : paintCtrl });
+			
+			$(paintCtrl).bind({
+				changeData: function(e){
+					paintCtrl.draw();
+					paintCtrl.currentRoom.cached = {
+						colors: paintCtrl.masks.map(function(mask){
+							return mask.color()
+						}),
+						thumb: paintCtrl.imgCacheResized(300).toDataURL()
+					}
+					$scope.cache(paintCtrl.currentRoom.id,paintCtrl.currentRoom.cached);
+				}
+			});
+		  }]);
+
+	</script>
+</head>
+<body>
+	<div ng-controller="ColorPhrase as colorphrase">
+		<ul class="fillter_tags">
+			<li ng-click="fillTag('')">
+				<span>All room</span>
+			</li>
+			<li ng-repeat="(tag,ids) in tagList" ng-click="fillTag(tag)">
+				<span>{{tag}}</span>
+			</li>
+		</ul>
+
+		<div class="rooms">
+			<div ng-repeat="(id,room) in visibleRooms" ng-click="editRoom(id)">
+				<div class="thumb">
+					<img ng-src="{{getThumb(room)}}"/>
+				</div>
+				<span>{{room.name}}</span>
+			</div>
+		</div>
+		<div class="paintroom" ng-mousemove="paintCtrl.checkHover($event)">
+			<div class="header">				
+				<button type="button" ng-click="paintCtrl.close()">x</button>
+				<button type="button" ng-click="paintCtrl.clearColor()">Clear color</button>
+			</div>
+			<div class="canvas_panel">
+				<canvas class="paintroom_root"></canvas>
+				<canvas class="paintroom_outlines"></canvas>
+				<div class="holder" ng-click="paintCtrl.toggleColors($event)">
+					<div class="hotspot"
+						ng-repeat="mask in paintCtrl.masks"
+						ng-mouseenter="mask.outLine(true)"
+						style="
+						 	top:{{mask.hotspot().y*100}}%;
+						 	left:{{mask.hotspot().x*100}}%;
+						 	background: #{{mask.color().hex}};
+						">
+						<div class="color_panel">
+							<div class="current_color"></div>							
+						</div> 		
+					</div>
+				</div>
+				
+				<div class="colorchoose">
+					<div class="currentColor"><div class="title">Current Color</div> <button class="clear" type="button">X</button></div>
+					<ul class="colorNav">
+						<li
+							class="colorFilter"
+							ng-repeat="colorGroup in colors" 
+							ng-click="filterColor(colorGroup)"
+							style="background: #{{colorGroup.cover}}"
+							>
+							<div>{{colorGroup.name}}</div>
+						</li>
+					</ul>
+					<div class="colors">
+						<div 
+							class="color"
+							ng-repeat="(id,color) in colorGroup.colors"
+							style="background: #{{color}}"
+							data-color='{"id": {{id}}, "hex":"{{color}}" }'
+							>{{id}}</div>
+					</div>
+					<!--
+					<div class="colorGroups">
+						<div class="colorGroup" ng-repeat="colorGroup in colors">
+							<div>{{colorGroup.name}}</div>
+							<div class="colors">
+								<div 
+									class="color"
+									ng-repeat="(id,color) in colorGroup.colors"
+									style="background: #{{color}}"
+									data-color='{"id": {{id}}, "hex":"{{color}}" }'
+									>{{id}}</div>
+							</div>
+						</div>
+					</div>
+					-->
+				</div>
+				<div class="selectedColors">
+					<div class="colors">
+						<div class="color" ng-repeat="color in paintCtrl.selectedColors()" style="color.id">{{color.hex}}</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+<div></div>
+	<style type="text/css">
+	.batquai{position: relative;}
+		.batquai:before {
+		    content: "";
+		    border: 2px solid;
+		    border-radius: 5px;
+		    position: absolute;
+		    width: 100%;
+		    padding-top: 100%;
+		    transform-origin: 50% 50%;
+		    transform: translateY(-50%) rotateZ(45deg);
+		    top: 50%;
+		    left: 0;
+		}
+	</style>
+</body>
+</html>
